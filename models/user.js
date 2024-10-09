@@ -43,6 +43,7 @@ const User = sequelize.define('User', {
         beforeSave: (user, options) => {
             const salt = bcrypt.genSaltSync(10);
             user.password = bcrypt.hashSync(user.password, salt);
+            user.picture_url = 'http://localhost:8000/' + user.picture_path
         }
     }
 });
@@ -51,7 +52,7 @@ User.prototype.getToken = (user) => {
     return jwt.sign({
         id: user.id,
         email: user.email,
-    })
+    }, "NEURONES")
 }
 
 User.prototype.validatePassword = (passwordInput, passwordHashed) => {

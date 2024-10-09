@@ -4,7 +4,32 @@ const route = express.Router();
 const _ = require('lodash');
 const {body, validationResult} = require('express-validator');
 const multer = require('multer');
-const upload = multer({ dest: 'storage'})
+const path = require('path');
+
+const storage = multer.diskStorage({
+    destination: function (request, file, callback) {
+      callback(null, 'storage/users');
+    },
+    filename: function (request, file, callback) {
+        
+        callback(null, file.originalname + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    fileFilter: function (req, file, callback) {
+      const filetypes = /jpeg|jpg|png/;
+      const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+      const mimetype = filetypes.test(file.mimetype);
+
+      if (extname && mimetype) {
+        return callback(null, true);
+      } else {
+        callback(new Error('Images only(jpeg, jpg, png)'));
+      }
+    }
+});
 
 const registerValidator = [
     body('email').isEmail().notEmpty().withMessage("Email Incorrect"),
@@ -17,16 +42,20 @@ const loginValidator = [
     body('password').notEmpty().withMessage("Your password must have at least 8 characters")
 ];
 
-route.post('/register', registerValidator,async (request, response, next) => {
-    const { filename, mimetype, size } = request.file;
-    console.log(request.body);
-    const errors = validationResult(request);
-    if (!errors.isEmpty()) return response.status(400).send({errors: errors.array()});
+route.post('/register', upload.single('profilePic'),registerValidator,async (request, response, next) => {
+    const { first_name, last_name, email, password, age } = request.body;
+    if (!first_name || !last_name || !email || !password || !age || !request.file) {
+        return response.status(400).json({ error: 'All fields including profile picture are required' });
+    }
+    if (typeof Number(age) == NaN ) {
+        return response.status(400).json({ error: 'Incorrect age' });
+    }
+    
     try {
         const userInput = request.body;
         const existingUser = await User.findOne({where: {email: userInput.email}});
         if (existingUser) return response.status(400).send({message: "Account is already registered", ok: false});
-        const newUser = await User.create({...userInput, picture_path: `storage/users/${filename}`});
+        const newUser = await User.create({...userInput, age: Number(age), picture_path: `storage/users/${request.file.filename}`, picture_url: ''});
         const token = newUser.getToken(newUser);
         response.status(201).send({message: "User successfully created", user: {..._.omit(newUser, ['password']), token}, ok: true});
     } catch (error) {

@@ -12,7 +12,9 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
+const path = require('path');
 
+app.use('/storage', express.static(path.join(__dirname, 'storage')));
 app.use("/auth", userRoutes);
 app.use("/post", postRoutes);
 
